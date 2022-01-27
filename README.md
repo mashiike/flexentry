@@ -20,7 +20,7 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2
     rm -R aws && \
     rm awscliv2.zip
 
-ARG FLEXENTRY_VERSION=0.1.0
+ARG FLEXENTRY_VERSION=0.2.0
 RUN curl -L https://github.com/mashiike/flexentry/releases/download/v${FLEXENTRY_VERSION}/flexentry_${FLEXENTRY_VERSION}_linux_amd64.tar.gz | tar zxvf - && \
     install flexentry /usr/local/bin/
 
