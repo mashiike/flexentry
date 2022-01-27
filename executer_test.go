@@ -39,7 +39,7 @@ func TestExecuter(t *testing.T) {
 		{
 			commands:       []string{"hoge"},
 			exceptedErr:    "exit status 127",
-			exceptedStderr: "sh: hoge: command not found\n",
+			exceptedStderr: "sh: 1: command not found\n",
 		},
 		{
 			commands:    []string{"sleep 30"},
