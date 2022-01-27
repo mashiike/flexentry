@@ -24,17 +24,17 @@ type Entrypoint struct {
 	query *gojq.Query
 }
 
-func (e *Entrypoint) Run(ctx context.Context) error {
+func (e *Entrypoint) Run(ctx context.Context, args ...string) error {
 	if e.isLambda() {
 		log.Println("[debug] start lambda handler")
-		lambda.Start(e.handleRequest)
+		lambda.Start(e.getHandler(args...))
 		return nil
 	}
 	return e.Execute(ctx, Pipe{
 		Stdin:  os.Stdin,
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
-	}, os.Args[1:]...)
+	}, args...)
 }
 
 func (e *Entrypoint) isLambda() bool {
@@ -51,39 +51,45 @@ func (e *Entrypoint) Execute(ctx context.Context, pipe Pipe, commands ...string)
 	return e.Executer.Execute(ctx, pipe, commands...)
 }
 
-func (e *Entrypoint) handleRequest(ctx context.Context, event Event) (interface{}, error) {
-	commands, err := e.DetectCommand(ctx, event)
-	if err != nil {
-		log.Println("[error] ", err)
-		return nil, err
-	}
-	pipe := Pipe{
-		Stderr: os.Stderr,
-		Stdout: os.Stdout,
-	}
-	var bufInput, bufOutput bytes.Buffer
-	if err := json.NewEncoder(&bufInput).Encode(event); err != nil {
-		log.Println("[warn] failed event encode", err)
-	} else {
-		pipe.Stdin = &bufInput
-	}
-	if os.Getenv("FLEXENTRY_FUNCTION_OUTPUT") == "enable" {
-		pipe.Stdout = io.MultiWriter(os.Stdout, &bufOutput)
-	}
-	err = e.Execute(ctx, pipe, commands...)
-	if err != nil {
-		log.Println("[error] ", err)
-		return nil, err
-	}
-	if bufOutput.Len() > 0 {
-		var functionOutput interface{}
-		if err := json.NewDecoder(&bufOutput).Decode(&functionOutput); err != nil {
-			log.Println("[warn] failed output encode", err)
-			return nil, nil
+func (e *Entrypoint) getHandler(args ...string) func(ctx context.Context, event Event) (interface{}, error) {
+	return func(ctx context.Context, event Event) (interface{}, error) {
+		commands, err := e.DetectCommand(ctx, event)
+		if err != nil {
+			log.Println("[error] ", err)
+			return nil, err
 		}
-		return functionOutput, nil
+		pipe := Pipe{
+			Stderr: os.Stderr,
+			Stdout: os.Stdout,
+		}
+		var bufInput, bufOutput bytes.Buffer
+		if err := json.NewEncoder(&bufInput).Encode(event); err != nil {
+			log.Println("[warn] failed event encode", err)
+		} else {
+			pipe.Stdin = &bufInput
+		}
+		if os.Getenv("FLEXENTRY_FUNCTION_OUTPUT") == "enable" {
+			pipe.Stdout = io.MultiWriter(os.Stdout, &bufOutput)
+		}
+		executeCommand := make([]string, 0, len(args)+len(commands))
+		executeCommand = append(executeCommand, args...)
+		executeCommand = append(executeCommand, commands...)
+
+		err = e.Execute(ctx, pipe, executeCommand...)
+		if err != nil {
+			log.Println("[error] ", err)
+			return nil, err
+		}
+		if bufOutput.Len() > 0 {
+			var functionOutput interface{}
+			if err := json.NewDecoder(&bufOutput).Decode(&functionOutput); err != nil {
+				log.Println("[warn] failed output encode", err)
+				return nil, nil
+			}
+			return functionOutput, nil
+		}
+		return nil, nil
 	}
-	return nil, nil
 }
 
 func (e *Entrypoint) DetectCommand(ctx context.Context, event Event) ([]string, error) {
