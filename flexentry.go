@@ -30,7 +30,11 @@ func (e *Entrypoint) Run(ctx context.Context) error {
 		lambda.Start(e.handleRequest)
 		return nil
 	}
-	return e.Execute(ctx, os.Stdin, os.Args[1:]...)
+	return e.Execute(ctx, Pipe{
+		Stdin:  os.Stdin,
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
+	}, os.Args[1:]...)
 }
 
 func (e *Entrypoint) isLambda() bool {
@@ -40,30 +44,46 @@ func (e *Entrypoint) isLambda() bool {
 
 type Event interface{}
 
-func (e *Entrypoint) Execute(ctx context.Context, stdin io.Reader, commands ...string) error {
+func (e *Entrypoint) Execute(ctx context.Context, pipe Pipe, commands ...string) error {
 	if e.Executer == nil {
 		return nil
 	}
-	return e.Executer.Execute(ctx, stdin, commands...)
+	return e.Executer.Execute(ctx, pipe, commands...)
 }
 
-func (e *Entrypoint) handleRequest(ctx context.Context, event Event) error {
+func (e *Entrypoint) handleRequest(ctx context.Context, event Event) (interface{}, error) {
 	commands, err := e.DetectCommand(ctx, event)
 	if err != nil {
 		log.Println("[error] ", err)
-		return err
+		return nil, err
 	}
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(event); err != nil {
-		log.Println("[error] failed event encode", err)
-		return err
+	pipe := Pipe{
+		Stderr: os.Stderr,
+		Stdout: os.Stdout,
 	}
-	err = e.Execute(ctx, &buf, commands...)
+	var bufInput, bufOutput bytes.Buffer
+	if err := json.NewEncoder(&bufInput).Encode(event); err != nil {
+		log.Println("[warn] failed event encode", err)
+	} else {
+		pipe.Stdin = &bufInput
+	}
+	if os.Getenv("FLEXENTRY_FUNCTION_OUTPUT") == "enable" {
+		pipe.Stdout = io.MultiWriter(os.Stdout, &bufOutput)
+	}
+	err = e.Execute(ctx, pipe, commands...)
 	if err != nil {
 		log.Println("[error] ", err)
-		return err
+		return nil, err
 	}
-	return err
+	if bufOutput.Len() > 0 {
+		var functionOutput interface{}
+		if err := json.NewDecoder(&bufOutput).Decode(&functionOutput); err != nil {
+			log.Println("[warn] failed output encode", err)
+			return nil, nil
+		}
+		return functionOutput, nil
+	}
+	return nil, nil
 }
 
 func (e *Entrypoint) DetectCommand(ctx context.Context, event Event) ([]string, error) {

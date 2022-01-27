@@ -51,14 +51,18 @@ func TestExecuter(t *testing.T) {
 		t.Run(strings.Join(c.commands, "_"), func(t *testing.T) {
 			stdin := bytes.NewReader(c.stdin)
 			var stdout, stderr bytes.Buffer
-			executer := testShellExecuter.SetOutput(&stdout, &stderr)
+			executer := testShellExecuter
 			timeout := 1 * time.Minute
 			if c.timeout != 0 {
 				timeout = c.timeout
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
-			err := executer.Execute(ctx, stdin, c.commands...)
+			err := executer.Execute(ctx, flexentry.Pipe{
+				Stdin:  stdin,
+				Stdout: &stdout,
+				Stderr: &stderr,
+			}, c.commands...)
 			if c.exceptedErr == "" {
 				require.NoError(t, err)
 			} else {

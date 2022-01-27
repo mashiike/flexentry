@@ -14,28 +14,28 @@ import (
 	"github.com/handlename/ssmwrap"
 )
 
+type Pipe struct {
+	Stdin  io.Reader
+	Stdout io.Writer
+	Stderr io.Writer
+}
 type Executer interface {
-	Execute(ctx context.Context, stdin io.Reader, commands ...string) error
+	Execute(ctx context.Context, pipe Pipe, commands ...string) error
 }
 
 type ShellExecuter struct {
 	shell     string
 	shellArgs []string
-
-	stdout io.Writer
-	stderr io.Writer
 }
 
 func NewShellExecuter() *ShellExecuter {
 	return &ShellExecuter{
 		shell:     "sh",
 		shellArgs: []string{"-c"},
-		stdout:    os.Stdout,
-		stderr:    os.Stderr,
 	}
 }
 
-func (e *ShellExecuter) Execute(ctx context.Context, stdin io.Reader, commands ...string) error {
+func (e *ShellExecuter) Execute(ctx context.Context, pipe Pipe, commands ...string) error {
 	args := make([]string, 0, len(e.shellArgs)+len(commands))
 	args = append(args, e.shellArgs...)
 	args = append(args, strings.Join(commands, " "))
@@ -46,15 +46,15 @@ func (e *ShellExecuter) Execute(ctx context.Context, stdin io.Reader, commands .
 	p, _ := cmd.StdinPipe()
 	go func() {
 		defer p.Close()
-		if stdin == nil {
+		if pipe.Stdin == nil {
 			return
 		}
-		if _, err := io.Copy(p, stdin); err != nil {
+		if _, err := io.Copy(p, pipe.Stdin); err != nil {
 			log.Println("[warn] failed to write stdinPipe:", err)
 		}
 	}()
-	cmd.Stderr = e.stderr
-	cmd.Stdout = e.stdout
+	cmd.Stderr = pipe.Stderr
+	cmd.Stdout = pipe.Stdout
 	if err := cmd.Run(); err != nil {
 		return err
 	}
@@ -71,13 +71,6 @@ func (e *ShellExecuter) SetShell(shell string, shellArgs []string) *ShellExecute
 	cloned.shell = shell
 	cloned.shellArgs = make([]string, len(shellArgs))
 	copy(cloned.shellArgs, shellArgs)
-	return cloned
-}
-
-func (e *ShellExecuter) SetOutput(stdout, stderr io.Writer) *ShellExecuter {
-	cloned := e.Clone()
-	cloned.stdout = stdout
-	cloned.stderr = stderr
 	return cloned
 }
 
@@ -124,9 +117,9 @@ func (e *SSMWrapExecuter) exportEnv() error {
 	return nil
 }
 
-func (e *SSMWrapExecuter) Execute(ctx context.Context, stdin io.Reader, commands ...string) error {
+func (e *SSMWrapExecuter) Execute(ctx context.Context, pipe Pipe, commands ...string) error {
 	if err := e.exportEnvWithCache(); err != nil {
 		return err
 	}
-	return e.Executer.Execute(ctx, stdin, commands...)
+	return e.Executer.Execute(ctx, pipe, commands...)
 }
