@@ -20,8 +20,9 @@ import (
 type Entrypoint struct {
 	Executer
 
-	mu    sync.Mutex
-	query *gojq.Query
+	mu           sync.Mutex
+	commandQuery *gojq.Query
+	environQuery *gojq.Query
 }
 
 func (e *Entrypoint) Run(ctx context.Context, args ...string) error {
@@ -30,7 +31,7 @@ func (e *Entrypoint) Run(ctx context.Context, args ...string) error {
 		lambda.Start(e.getHandler(args...))
 		return nil
 	}
-	return e.Execute(ctx, Pipe{
+	return e.Execute(ctx, &ExecuteOption{
 		Stdin:  os.Stdin,
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
@@ -44,11 +45,11 @@ func (e *Entrypoint) isLambda() bool {
 
 type Event interface{}
 
-func (e *Entrypoint) Execute(ctx context.Context, pipe Pipe, commands ...string) error {
+func (e *Entrypoint) Execute(ctx context.Context, opt *ExecuteOption, commands ...string) error {
 	if e.Executer == nil {
 		return nil
 	}
-	return e.Executer.Execute(ctx, pipe, commands...)
+	return e.Executer.Execute(ctx, opt, commands...)
 }
 
 func (e *Entrypoint) getHandler(args ...string) func(ctx context.Context, event Event) (interface{}, error) {
@@ -58,7 +59,7 @@ func (e *Entrypoint) getHandler(args ...string) func(ctx context.Context, event 
 			log.Println("[error] ", err)
 			return nil, err
 		}
-		pipe := Pipe{
+		opt := &ExecuteOption{
 			Stderr: os.Stderr,
 			Stdout: os.Stdout,
 		}
@@ -66,16 +67,16 @@ func (e *Entrypoint) getHandler(args ...string) func(ctx context.Context, event 
 		if err := json.NewEncoder(&bufInput).Encode(event); err != nil {
 			log.Println("[warn] failed event encode", err)
 		} else {
-			pipe.Stdin = &bufInput
+			opt.Stdin = &bufInput
 		}
 		if os.Getenv("FLEXENTRY_FUNCTION_OUTPUT") == "enable" {
-			pipe.Stdout = io.MultiWriter(os.Stdout, &bufOutput)
+			opt.Stdout = io.MultiWriter(os.Stdout, &bufOutput)
 		}
 		executeCommand := make([]string, 0, len(args)+len(commands))
 		executeCommand = append(executeCommand, args...)
 		executeCommand = append(executeCommand, commands...)
 
-		err = e.Execute(ctx, pipe, executeCommand...)
+		err = e.Execute(ctx, opt, executeCommand...)
 		if err != nil {
 			log.Println("[error] ", err)
 			return nil, err
@@ -103,7 +104,7 @@ func (e *Entrypoint) DetectCommand(ctx context.Context, event Event) ([]string, 
 		return commands, nil
 	}
 	if data, ok := event.(map[string]interface{}); ok {
-		query, err := e.getQuery()
+		query, err := e.getCommandQuery()
 		if err != nil {
 			return nil, err
 		}
@@ -135,20 +136,72 @@ func (e *Entrypoint) DetectCommand(ctx context.Context, event Event) ([]string, 
 	return nil, errors.New("FLEXENTRY_COMMAND is required")
 }
 
-func (e *Entrypoint) getQuery() (*gojq.Query, error) {
+func (e *Entrypoint) DetectEnviron(ctx context.Context, event Event) ([]string, error) {
+	if data, ok := event.(map[string]interface{}); ok {
+		query, err := e.getEnvironQuery()
+		if err != nil {
+			return nil, err
+		}
+		environ := make([]string, 0, 1)
+		iter := query.RunWithContext(ctx, data)
+		for {
+			v, ok := iter.Next()
+			if !ok {
+				break
+			}
+			if err, ok := v.(error); ok {
+				return nil, fmt.Errorf("environ parse failed: %w", err)
+			}
+			if e, ok := v.(string); ok {
+				environ = MergeEnv(environ, []string{e})
+				continue
+			}
+			if es, ok := v.([]string); ok {
+				environ = MergeEnv(environ, es)
+				continue
+			}
+			if es, ok := v.(map[string]string); ok {
+				environ = MergeEnvWithMap(environ, es)
+				continue
+			}
+		}
+		return environ, nil
+	}
+	return []string{}, nil
+}
+
+func (e *Entrypoint) getCommandQuery() (*gojq.Query, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if e.query != nil {
-		return e.query, nil
+	if e.commandQuery != nil {
+		return e.commandQuery, nil
 	}
 	jqExpr := ".cmd"
 	if j := os.Getenv("FLEXENTRY_COMMAND_JQ_EXPR"); j != "" {
 		jqExpr = j
 	}
 	var err error
-	e.query, err = gojq.Parse(jqExpr)
+	e.commandQuery, err = gojq.Parse(jqExpr)
 	if err != nil {
 		return nil, err
 	}
-	return e.query, nil
+	return e.commandQuery, nil
+}
+
+func (e *Entrypoint) getEnvironQuery() (*gojq.Query, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.environQuery != nil {
+		return e.environQuery, nil
+	}
+	jqExpr := ".env"
+	if j := os.Getenv("FLEXENTRY_ENVIRON_JQ_EXPR"); j != "" {
+		jqExpr = j
+	}
+	var err error
+	e.environQuery, err = gojq.Parse(jqExpr)
+	if err != nil {
+		return nil, err
+	}
+	return e.environQuery, nil
 }

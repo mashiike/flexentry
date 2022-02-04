@@ -58,7 +58,7 @@ func TestExecuter(t *testing.T) {
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
-			err := executer.Execute(ctx, flexentry.Pipe{
+			err := executer.Execute(ctx, &flexentry.ExecuteOption{
 				Stdin:  stdin,
 				Stdout: &stdout,
 				Stderr: &stderr,
