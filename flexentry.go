@@ -30,7 +30,7 @@ func (e *Entrypoint) Run(ctx context.Context, args ...string) error {
 		lambda.Start(e.getHandler(args...))
 		return nil
 	}
-	return e.Execute(ctx, Pipe{
+	return e.Execute(ctx, &ExecuteOption{
 		Stdin:  os.Stdin,
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
@@ -44,11 +44,11 @@ func (e *Entrypoint) isLambda() bool {
 
 type Event interface{}
 
-func (e *Entrypoint) Execute(ctx context.Context, pipe Pipe, commands ...string) error {
+func (e *Entrypoint) Execute(ctx context.Context, opt *ExecuteOption, commands ...string) error {
 	if e.Executer == nil {
 		return nil
 	}
-	return e.Executer.Execute(ctx, pipe, commands...)
+	return e.Executer.Execute(ctx, opt, commands...)
 }
 
 func (e *Entrypoint) getHandler(args ...string) func(ctx context.Context, event Event) (interface{}, error) {
@@ -58,7 +58,7 @@ func (e *Entrypoint) getHandler(args ...string) func(ctx context.Context, event 
 			log.Println("[error] ", err)
 			return nil, err
 		}
-		pipe := Pipe{
+		opt := &ExecuteOption{
 			Stderr: os.Stderr,
 			Stdout: os.Stdout,
 		}
@@ -66,16 +66,16 @@ func (e *Entrypoint) getHandler(args ...string) func(ctx context.Context, event 
 		if err := json.NewEncoder(&bufInput).Encode(event); err != nil {
 			log.Println("[warn] failed event encode", err)
 		} else {
-			pipe.Stdin = &bufInput
+			opt.Stdin = &bufInput
 		}
 		if os.Getenv("FLEXENTRY_FUNCTION_OUTPUT") == "enable" {
-			pipe.Stdout = io.MultiWriter(os.Stdout, &bufOutput)
+			opt.Stdout = io.MultiWriter(os.Stdout, &bufOutput)
 		}
 		executeCommand := make([]string, 0, len(args)+len(commands))
 		executeCommand = append(executeCommand, args...)
 		executeCommand = append(executeCommand, commands...)
 
-		err = e.Execute(ctx, pipe, executeCommand...)
+		err = e.Execute(ctx, opt, executeCommand...)
 		if err != nil {
 			log.Println("[error] ", err)
 			return nil, err

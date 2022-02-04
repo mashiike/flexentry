@@ -14,13 +14,13 @@ import (
 	"github.com/handlename/ssmwrap"
 )
 
-type Pipe struct {
+type ExecuteOption struct {
 	Stdin  io.Reader
 	Stdout io.Writer
 	Stderr io.Writer
 }
 type Executer interface {
-	Execute(ctx context.Context, pipe Pipe, commands ...string) error
+	Execute(ctx context.Context, opt *ExecuteOption, commands ...string) error
 }
 
 type ShellExecuter struct {
@@ -35,7 +35,7 @@ func NewShellExecuter() *ShellExecuter {
 	}
 }
 
-func (e *ShellExecuter) Execute(ctx context.Context, pipe Pipe, commands ...string) error {
+func (e *ShellExecuter) Execute(ctx context.Context, opt *ExecuteOption, commands ...string) error {
 	args := make([]string, 0, len(e.shellArgs)+len(commands))
 	args = append(args, e.shellArgs...)
 	args = append(args, strings.Join(commands, " "))
@@ -44,17 +44,21 @@ func (e *ShellExecuter) Execute(ctx context.Context, pipe Pipe, commands ...stri
 	cmd := exec.CommandContext(ctx, e.shell, args...)
 	cmd.Env = os.Environ()
 	p, _ := cmd.StdinPipe()
+	var stdin io.Reader
+	if opt != nil {
+		stdin = opt.Stdin
+		cmd.Stderr = opt.Stderr
+		cmd.Stdout = opt.Stdout
+	}
 	go func() {
 		defer p.Close()
-		if pipe.Stdin == nil {
+		if stdin == nil {
 			return
 		}
-		if _, err := io.Copy(p, pipe.Stdin); err != nil {
+		if _, err := io.Copy(p, stdin); err != nil {
 			log.Println("[warn] failed to write stdinPipe:", err)
 		}
 	}()
-	cmd.Stderr = pipe.Stderr
-	cmd.Stdout = pipe.Stdout
 	if err := cmd.Run(); err != nil {
 		return err
 	}
@@ -117,9 +121,9 @@ func (e *SSMWrapExecuter) exportEnv() error {
 	return nil
 }
 
-func (e *SSMWrapExecuter) Execute(ctx context.Context, pipe Pipe, commands ...string) error {
+func (e *SSMWrapExecuter) Execute(ctx context.Context, opt *ExecuteOption, commands ...string) error {
 	if err := e.exportEnvWithCache(); err != nil {
 		return err
 	}
-	return e.Executer.Execute(ctx, pipe, commands...)
+	return e.Executer.Execute(ctx, opt, commands...)
 }
