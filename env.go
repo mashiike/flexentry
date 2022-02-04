@@ -6,8 +6,12 @@ import (
 )
 
 func MergeEnv(base, other []string) []string {
-	baseMap := envSliceToMap(base)
 	otherMap := envSliceToMap(other)
+	return MergeEnvWithMap(base, otherMap)
+}
+
+func MergeEnvWithMap(base []string, otherMap map[string]string) []string {
+	baseMap := envSliceToMap(base)
 	for key, value := range otherMap {
 		baseMap[key] = value
 	}

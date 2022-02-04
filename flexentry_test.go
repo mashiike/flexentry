@@ -88,3 +88,79 @@ func TestEntrypointDetectCommand(t *testing.T) {
 		})
 	}
 }
+
+func TestEntrypointDetectEnviron(t *testing.T) {
+	cases := []struct {
+		preAction  func()
+		postAction func()
+		event      flexentry.Event
+		expected   []string
+	}{
+		{
+			event:    "echo hoge",
+			expected: []string{},
+		},
+		{
+			event: map[string]interface{}{
+				"cmd": "echo hoge",
+			},
+			expected: []string{},
+		},
+		{
+			event: map[string]interface{}{
+				"cmd": "echo hoge",
+				"env": map[string]string{
+					"HOGE": "fuga",
+				},
+			},
+			expected: []string{"HOGE=fuga"},
+		},
+		{
+			preAction: func() {
+				os.Setenv("FLEXENTRY_ENVIRON_JQ_EXPR", ".environ")
+			},
+			postAction: func() {
+				os.Unsetenv("FLEXENTRY_ENVIRON_JQ_EXPR")
+			},
+			event: map[string]interface{}{
+				"cmd": "echo hoge",
+				"env": map[string]string{
+					"HOGE": "fuga",
+					"FUGA": "hoge",
+				},
+				"environ": map[string]string{
+					"HOGE": "hoge",
+				},
+			},
+			expected: []string{"HOGE=hoge"},
+		},
+		{
+			event: map[string]interface{}{
+				"cmd": "echo hoge",
+				"env": []string{
+					"HOGE=fuga",
+					"FUGA=hoge",
+				},
+			},
+			expected: []string{
+				"HOGE=fuga",
+				"FUGA=hoge",
+			},
+		},
+	}
+
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("case.%d", i), func(t *testing.T) {
+			if c.preAction != nil {
+				c.preAction()
+			}
+			if c.postAction != nil {
+				defer c.postAction()
+			}
+			e := &flexentry.Entrypoint{}
+			actual, err := e.DetectEnviron(context.Background(), c.event)
+			require.NoError(t, err)
+			require.ElementsMatch(t, c.expected, actual)
+		})
+	}
+}
