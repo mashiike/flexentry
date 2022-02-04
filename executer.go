@@ -15,9 +15,10 @@ import (
 )
 
 type ExecuteOption struct {
-	Stdin  io.Reader
-	Stdout io.Writer
-	Stderr io.Writer
+	Stdin   io.Reader
+	Stdout  io.Writer
+	Stderr  io.Writer
+	Environ []string
 }
 type Executer interface {
 	Execute(ctx context.Context, opt *ExecuteOption, commands ...string) error
@@ -49,6 +50,7 @@ func (e *ShellExecuter) Execute(ctx context.Context, opt *ExecuteOption, command
 		stdin = opt.Stdin
 		cmd.Stderr = opt.Stderr
 		cmd.Stdout = opt.Stdout
+		cmd.Env = MergeEnv(cmd.Env, opt.Environ)
 	}
 	go func() {
 		defer p.Close()
