@@ -147,6 +147,28 @@ func TestEntrypointDetectEnviron(t *testing.T) {
 				"FUGA=hoge",
 			},
 		},
+		{
+			event: map[string]interface{}{
+				"cmd": "echo hoge",
+				"env": []interface{}{
+					"HOGE=fuga",
+					"FUGA=hoge",
+				},
+			},
+			expected: []string{
+				"HOGE=fuga",
+				"FUGA=hoge",
+			},
+		},
+		{
+			event: map[string]interface{}{
+				"cmd": "echo hoge",
+				"env": map[string]interface{}{
+					"HOGE": "fuga",
+				},
+			},
+			expected: []string{"HOGE=fuga"},
+		},
 	}
 
 	for i, c := range cases {
