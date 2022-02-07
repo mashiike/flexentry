@@ -54,14 +54,28 @@ func (e *Entrypoint) Execute(ctx context.Context, opt *ExecuteOption, commands .
 
 func (e *Entrypoint) getHandler(args ...string) func(ctx context.Context, event Event) (interface{}, error) {
 	return func(ctx context.Context, event Event) (interface{}, error) {
+		log.Println("[debug] event:", event)
 		commands, err := e.DetectCommand(ctx, event)
 		if err != nil {
 			log.Println("[error] ", err)
 			return nil, err
 		}
+		environ, err := e.DetectEnviron(ctx, event)
+		if err != nil {
+			log.Println("[error] ", err)
+			return nil, err
+		}
+		if len(environ) > 0 {
+			for _, e := range environ {
+				log.Println("[debug] ", e)
+			}
+		} else {
+			environ = []string{}
+		}
 		opt := &ExecuteOption{
-			Stderr: os.Stderr,
-			Stdout: os.Stdout,
+			Stderr:  os.Stderr,
+			Stdout:  os.Stdout,
+			Environ: environ,
 		}
 		var bufInput, bufOutput bytes.Buffer
 		if err := json.NewEncoder(&bufInput).Encode(event); err != nil {
