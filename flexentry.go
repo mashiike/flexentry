@@ -174,7 +174,27 @@ func (e *Entrypoint) DetectEnviron(ctx context.Context, event Event) ([]string, 
 				environ = MergeEnv(environ, es)
 				continue
 			}
+			if is, ok := v.([]interface{}); ok {
+				es := make([]string, 0, len(is))
+				for _, i := range is {
+					if s, ok := i.(string); ok {
+						es = append(es, s)
+					}
+				}
+				environ = MergeEnv(environ, es)
+				continue
+			}
 			if es, ok := v.(map[string]string); ok {
+				environ = MergeEnvWithMap(environ, es)
+				continue
+			}
+			if is, ok := v.(map[string]interface{}); ok {
+				es := make(map[string]string, len(is))
+				for key, value := range is {
+					if s, ok := value.(string); ok {
+						es[key] = s
+					}
+				}
 				environ = MergeEnvWithMap(environ, es)
 				continue
 			}
