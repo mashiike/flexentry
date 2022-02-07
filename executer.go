@@ -30,16 +30,28 @@ type ShellExecuter struct {
 }
 
 func NewShellExecuter() *ShellExecuter {
+	shell := "sh"
+	if s := os.Getenv("FLEXENTRY_SHELL"); s != "" {
+		shell = s
+	}
+	shellArgs := []string{"-c"}
+	if sArgs := os.Getenv("FLEXENTRY_SHELL_ARGS"); sArgs != "" {
+		shellArgs = strings.Split(sArgs, " ")
+	}
 	return &ShellExecuter{
-		shell:     "sh",
-		shellArgs: []string{"-c"},
+		shell:     shell,
+		shellArgs: shellArgs,
 	}
 }
 
 func (e *ShellExecuter) Execute(ctx context.Context, opt *ExecuteOption, commands ...string) error {
 	args := make([]string, 0, len(e.shellArgs)+len(commands))
 	args = append(args, e.shellArgs...)
-	args = append(args, strings.Join(commands, " "))
+	if os.Getenv("FLEXENTRY_QUOTE_COMMAND") != "" {
+		args = append(args, `"`+strings.Join(commands, " ")+`"`)
+	} else {
+		args = append(args, strings.Join(commands, " "))
+	}
 
 	log.Printf("[debug] $%s %s", e.shell, strings.Join(args, " "))
 	cmd := exec.CommandContext(ctx, e.shell, args...)
