@@ -47,7 +47,7 @@ func NewShellExecuter() *ShellExecuter {
 func (e *ShellExecuter) Execute(ctx context.Context, opt *ExecuteOption, commands ...string) error {
 	args := make([]string, 0, len(e.shellArgs)+len(commands))
 	args = append(args, e.shellArgs...)
-	if os.Getenv("FLEXENTRY_QUATRE_COMMAND") != "" {
+	if os.Getenv("FLEXENTRY_QUOTE_COMMAND") != "" {
 		args = append(args, `"`+strings.Join(commands, " ")+`"`)
 	} else {
 		args = append(args, strings.Join(commands, " "))
