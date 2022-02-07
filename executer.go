@@ -47,7 +47,11 @@ func NewShellExecuter() *ShellExecuter {
 func (e *ShellExecuter) Execute(ctx context.Context, opt *ExecuteOption, commands ...string) error {
 	args := make([]string, 0, len(e.shellArgs)+len(commands))
 	args = append(args, e.shellArgs...)
-	args = append(args, strings.Join(commands, " "))
+	if os.Getenv("FLEXENTRY_QUATRE_COMMAND") != "" {
+		args = append(args, `"`+strings.Join(commands, " ")+`"`)
+	} else {
+		args = append(args, strings.Join(commands, " "))
+	}
 
 	log.Printf("[debug] $%s %s", e.shell, strings.Join(args, " "))
 	cmd := exec.CommandContext(ctx, e.shell, args...)
