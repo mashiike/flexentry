@@ -30,9 +30,17 @@ type ShellExecuter struct {
 }
 
 func NewShellExecuter() *ShellExecuter {
+	shell := "sh"
+	if s := os.Getenv("FLEXENTRY_SHELL"); s != "" {
+		shell = s
+	}
+	shellArgs := []string{"-c"}
+	if sArgs := os.Getenv("FLEXENTRY_SHELL_ARGS"); sArgs != "" {
+		shellArgs = strings.Split(sArgs, " ")
+	}
 	return &ShellExecuter{
-		shell:     "sh",
-		shellArgs: []string{"-c"},
+		shell:     shell,
+		shellArgs: shellArgs,
 	}
 }
 
