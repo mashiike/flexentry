@@ -8,7 +8,7 @@ require (
 	github.com/fujiwara/logutils v1.1.0
 	github.com/handlename/ssmwrap v1.1.1
 	github.com/itchyny/gojq v0.12.6
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.7.1
 )
 
 require (
