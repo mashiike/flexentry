@@ -3,7 +3,7 @@ module github.com/mashiike/flexentry
 go 1.17
 
 require (
-	github.com/aws/aws-lambda-go v1.28.0
+	github.com/aws/aws-lambda-go v1.31.1
 	github.com/fatih/color v1.13.0
 	github.com/fujiwara/logutils v1.1.0
 	github.com/handlename/ssmwrap v1.1.1
