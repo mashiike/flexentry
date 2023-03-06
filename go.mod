@@ -5,7 +5,7 @@ go 1.17
 require (
 	github.com/aws/aws-lambda-go v1.28.0
 	github.com/fatih/color v1.13.0
-	github.com/fujiwara/logutils v1.1.0
+	github.com/fujiwara/logutils v1.1.2
 	github.com/handlename/ssmwrap v1.1.1
 	github.com/itchyny/gojq v0.12.6
 	github.com/stretchr/testify v1.7.0
