@@ -12,7 +12,7 @@ require (
 )
 
 require (
-	github.com/aws/aws-sdk-go v1.30.19 // indirect
+	github.com/aws/aws-sdk-go v1.34.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/itchyny/timefmt-go v0.1.3 // indirect
 	github.com/jmespath/go-jmespath v0.3.0 // indirect
