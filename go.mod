@@ -3,12 +3,12 @@ module github.com/mashiike/flexentry
 go 1.17
 
 require (
-	github.com/aws/aws-lambda-go v1.28.0
+	github.com/aws/aws-lambda-go v1.41.0
 	github.com/fatih/color v1.15.0
 	github.com/fujiwara/logutils v1.1.0
 	github.com/handlename/ssmwrap v1.1.1
 	github.com/itchyny/gojq v0.12.6
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.7.2
 )
 
 require (
@@ -20,5 +20,5 @@ require (
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	golang.org/x/sys v0.6.0 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
